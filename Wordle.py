@@ -14,6 +14,8 @@ class WordleEnv:
         with open('data/wordle_actual.txt', 'r') as f:
         #with open('data/wordle_subset.txt', 'r') as f:
             words = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
+            self.padding = 8 - len(words)%8
+            words += [','*self.word_length] * self.padding
             if subset_size is not None:
                 words = self.get_random_subset(words, subset_size)
             self.words = words
@@ -26,25 +28,49 @@ class WordleEnv:
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
         
         
-    # This function removes incompatible words based on current guesses.
+    def get_feedback(self, guess, target):
+        """
+        Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green)
+        """
+        feedback = [0] * len(guess)
+        target_counts = {}
+        
+        for char in target:
+            target_counts[char] = target_counts.get(char, 0) + 1
+            
+        for i, (g_char, t_char) in enumerate(zip(guess, target)):
+            if g_char == t_char:
+                feedback[i] = 2
+                target_counts[g_char] -= 1
+                
+        for i, (g_char, t_char) in enumerate(zip(guess, target)):
+            if feedback[i] == 0 and target_counts.get(g_char, 0) > 0:
+                feedback[i] = 1
+                target_counts[g_char] -= 1
+                
+        return feedback
+
     def remove_incompatible_words(self, current_guess):
         new_available_actions = []
+        
+        # 1. Get the actual feedback for the current guess against the real target
+        actual_feedback = self.get_feedback(current_guess, self.target_word)
+        
+        # 2. Test every candidate word
         for i in self.available_actions:
-            word = self.words[i]
-            compatible = True
-            for idx, (guess_char, target_char) in enumerate(zip(current_guess, self.target_word)):
-                if guess_char == target_char and word[idx] != guess_char:
-                    compatible = False
-                    break
-                elif guess_char != target_char and word[idx] == guess_char:
-                    compatible = False
-                    break
-            if compatible:
+            candidate_word = self.words[i]
+            
+            # If this candidate word were the secret target, would it give us 
+            # the exact same feedback for our current guess?
+            simulated_feedback = self.get_feedback(current_guess, candidate_word)
+            
+            # If the feedback matches perfectly, it's a valid possible word!
+            if simulated_feedback == actual_feedback:
                 new_available_actions.append(i)
-
-        # Ensure at least one word is left in the available word list
-        if len(new_available_actions) > 0:
-            self.available_actions = new_available_actions
+                
+        # Update your available actions (assuming you reassign it back to self)
+        # self.available_actions = new_available_actions 
+        return new_available_actions
 
     # This function masks action for the incompatible actions.
     def mask_action(self, action):
@@ -55,17 +81,18 @@ class WordleEnv:
     def get_random_subset(self, words, subset_size):
         return random.sample(words, subset_size)
     
-    # This function chooses a random number between 0 and length of dataset, which will be transformed into word based on the index.
+    # This function chooses a random number between 0 and length of dataset, which will be transformed into a word based on the index.
     def get_random_action(self):
         return random.randint(0, self.action_size - 1)
 
-    # Before starting each episode, the environment is resetted to give the initial conditions.
+    # Before starting each episode, the environment is reset to give the initial conditions.
     def reset(self):
         self.target_word = random.choice(self.words)
         self.attempts_left = self.max_attempts
         self.attempts = 0
         self.current_guess = '_' * self.word_length
         self.available_actions = list(range(self.action_size))
+
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
         
         return self.current_state

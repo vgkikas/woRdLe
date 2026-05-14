@@ -15,8 +15,7 @@ class Actor(nn.Module):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         x = self.layer3(x)
-        distribution = Categorical(F.softmax(x, dim=-1))
-        return distribution
+        return x
     
 # Critic class for the agent, which will be used to evaluate the current state.
 class Critic(nn.Module):
