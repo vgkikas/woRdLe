@@ -53,25 +53,18 @@ class WordleEnv:
     def remove_incompatible_words(self, current_guess):
         new_available_actions = []
         
-        # 1. Get the actual feedback for the current guess against the real target
         actual_feedback = self.get_feedback(current_guess, self.target_word)
         
-        # 2. Test every candidate word
         for i in self.available_actions:
             candidate_word = self.words[i]
             
-            # If this candidate word were the secret target, would it give us 
-            # the exact same feedback for our current guess?
             simulated_feedback = self.get_feedback(current_guess, candidate_word)
             
-            # If the feedback matches perfectly, it's a valid possible word!
             if simulated_feedback == actual_feedback:
                 new_available_actions.append(i)
                 
-        # Update your available actions (assuming you reassign it back to self)
-        # self.available_actions = new_available_actions 
-        return new_available_actions
-
+        self.available_actions = new_available_actions 
+        
     # This function masks action for the incompatible actions.
     def mask_action(self, action):
         if action in self.available_actions:
