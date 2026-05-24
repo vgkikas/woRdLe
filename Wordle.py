@@ -6,10 +6,10 @@ class WordleEnv:
         self.word_length = word_length
         self.max_attempts = max_attempts
         self.target_word = ''
-        self.attempts_left = 0
+        self.attempts_left = 6
         self.attempts = 0
         self.current_guess = ''
-
+        
         # Opening the txt file containing possible words and get a random subset of them if necessary
         with open('data/wordle_actual.txt', 'r') as f:
         #with open('data/wordle_subset.txt', 'r') as f:
@@ -24,11 +24,12 @@ class WordleEnv:
         self.state_size = 78
         # Possible actions are the number of words in the dataset
         self.action_size = len(self.words)
+        self.available_actions = list(range(self.action_size))
         # Current state starts as all zeros one hot encoded matrix, then it will be built after each move
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
         
-        
-    def get_feedback(self, guess, target):
+    @staticmethod
+    def get_feedback(guess, target):
         """
         Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green)
         """
@@ -71,7 +72,8 @@ class WordleEnv:
             self.available_actions.remove(action)
     
     # This function gets a random subset of words
-    def get_random_subset(self, words, subset_size):
+    @staticmethod
+    def get_random_subset(words, subset_size):
         return random.sample(words, subset_size)
     
     # This function chooses a random number between 0 and length of dataset, which will be transformed into a word based on the index.
@@ -99,7 +101,7 @@ class WordleEnv:
         done = False
         # If the guess is correct, +10 reward.
         if self.current_guess == self.target_word:
-            reward = 10
+            reward = 10 * self.attempts_left
             done = True
         # If some of the letters are correct, give intermediate reward for the number of correct letters [1,4]
         else:
