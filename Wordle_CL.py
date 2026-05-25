@@ -100,7 +100,7 @@ class WordleEnv:
         done = False
         # If the guess is correct, +10 reward.
         if self.current_guess == self.target_word:
-            reward = 10
+            reward = 10 * self.attempts_left
             done = True
         # If some of the letters are correct, give intermediate reward for the number of correct letters [1,4]
         else:
