@@ -98,24 +98,25 @@ class WordleEnv:
         self.attempts += 1
         reward = 0
         done = False
-        # If the guess is correct, +10 reward.
+        is_won = False # NEW : win_rate variable
+        
         if self.current_guess == self.target_word:
             reward = 10 * self.attempts_left
             done = True
-        # If some of the letters are correct, give intermediate reward for the number of correct letters [1,4]
+            is_won = True # NEW
         else:
             correct_letters = sum([1 for guessed_letter, target_letter in zip(self.current_guess, self.target_word) if guessed_letter == target_letter])
             reward = 1 * correct_letters
             
             self.attempts_left -= 1
-            # If there is no attempts left, unsuccessful, -10 reward.
             if self.attempts_left <= 0:
                 reward = -10
                 done = True
                 
         self.remove_incompatible_words(self.current_guess)
 
-        return self.get_state(), reward, done, {}
+        # modified : get the "won" info
+        return self.get_state(), reward, done, {"won": is_won}
     
     # In each turn, get the new state based on the correctness of the letters
     def get_state(self):
