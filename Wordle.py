@@ -14,8 +14,6 @@ class WordleEnv:
         with open('data/wordle_actual.txt', 'r') as f:
         #with open('data/wordle_subset.txt', 'r') as f:
             words = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
-            self.padding = 8 - len(words)%8
-            words += [','*self.word_length] * self.padding
             if subset_size is not None:
                 words = self.get_random_subset(words, subset_size)
             self.words = words

@@ -1,4 +1,3 @@
-import random
 import numpy as np
 
 class WordleEnv:
@@ -77,20 +76,18 @@ class WordleEnv:
     
     # This function gets a random subset of words
     def get_random_subset(self, words, subset_size):
-        return random.sample(words, subset_size)
+        return np.random.sample(words, subset_size)
     
     # This function chooses a random number between 0 and length of dataset, which will be transformed into a word based on the index.
     def get_random_action(self):
-        return random.randint(0, self.action_size - 1)
+        return np.random.randint(0, self.action_size - 1)
 
     # Before starting each episode, the environment is reset to give the initial conditions.
     def reset(self):
-        self.target_word = random.choice(self.target_words)
-        
+        self.target_word = np.random.choice(self.target_words)
         self.attempts_left = self.max_attempts
         self.attempts = 0
         self.current_guess = '_' * self.word_length
-        
         self.available_actions = list(range(self.action_size))
 
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
