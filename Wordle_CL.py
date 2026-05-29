@@ -2,7 +2,7 @@ import random
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, subset_size=None, dataset_path='data/wordle_actual.txt'):
+    def __init__(self, word_length=5, max_attempts=6, subset_size=None, global_dataset_path='data/wordle_actual.txt', target_dataset_path=None):
         self.word_length = word_length
         self.max_attempts = max_attempts
         self.target_word = ''
@@ -10,16 +10,20 @@ class WordleEnv:
         self.attempts = 0
         self.current_guess = ''
 
-        # Opening the txt file containing possible words and get a random subset of them if necessary
-        #with open('data/wordle_actual.txt', 'r') as f:
-        #with open('data/wordle_subset.txt', 'r') as f:
-        with open(dataset_path, 'r', encoding='utf-8') as f:
+        # Load global dataset
+        with open(global_dataset_path, 'r', encoding='utf-8') as f:
             words = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
             self.padding = 8 - len(words)%8
             words += [','*self.word_length] * self.padding
-            if subset_size is not None:
-                words = self.get_random_subset(words, subset_size)
             self.words = words
+
+        # Load the subset for the teacher
+        if target_dataset_path is not None:
+            with open(target_dataset_path, 'r', encoding='utf-8') as f:
+                target_words = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
+                self.target_words = target_words
+        else:
+            self.target_words = self.words
 
         # State space has 78 dimensions (3 for each letter, gray, yellow, and green states)
         self.state_size = 78
@@ -81,14 +85,15 @@ class WordleEnv:
 
     # Before starting each episode, the environment is reset to give the initial conditions.
     def reset(self):
-        self.target_word = random.choice(self.words)
+        self.target_word = random.choice(self.target_words)
+        
         self.attempts_left = self.max_attempts
         self.attempts = 0
         self.current_guess = '_' * self.word_length
+        
         self.available_actions = list(range(self.action_size))
 
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
-        
         return self.current_state
 
     # Each time we make an action (make a guess), we check how many of the letters are correct.
