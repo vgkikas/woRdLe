@@ -4,10 +4,9 @@ Team Members:
 Harsh Shah, Anwit Damle, Ujjwal Agarwal
 
 Requirements: 
-
-pip install numpy
-pip install torch
-
+```shell
+pip install -r requirements.txt
+```
 
 Environment:
 State: A 78-dimensional vector encodes each letter's correctness and position relative to the target word.
@@ -26,8 +25,6 @@ DDQN employs two separate neural networks, known as the online network and the t
 In A2C, an actor network learns a policy to select actions, while a critic network estimates the value function to evaluate these actions. The advantage of A2C lies in its ability to update both the policy and the value function simultaneously, using the advantage function to guide learning. This approach leads to more stable training and faster convergence compared to traditional policy gradient methods.
 The advantage function, A(s,a), measures the advantage of taking action a in state s​ over the expected value of the state under the current policy.
 A(s,a) = Q(s,a) - V(s)
-
-Github Link: [repo](https://github.com/harsh788/woRdLe)
 
 Used resources:
 
