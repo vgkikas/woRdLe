@@ -1,27 +1,28 @@
-import random
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, subset_size=None):
+    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path=None):
         self.word_length = word_length
         self.max_attempts = max_attempts
         self.target_word = ''
-        self.attempts_left = 6
+        self.attempts_left = self.max_attempts
         self.attempts = 0
         self.current_guess = ''
-        
-        # Opening the txt file containing possible words and get a random subset of them if necessary
-        with open('data/wordle_actual.txt', 'r') as f:
-        #with open('data/wordle_subset.txt', 'r') as f:
+
+        # Load global dataset
+        with open(global_dataset_path, 'r', encoding='utf-8') as f:
             words = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
-            self.padding = 8 - len(words)%8
-            words += [','*self.word_length] * self.padding
-            if subset_size is not None:
-                words = self.get_random_subset(words, subset_size)
             self.words = words
 
-        # State space has 78 dimensions (3 for each letter, gray, yellow, and green states)
-        self.state_size = 78
+        # Load the subset for the teacher
+        if target_dataset_path is not None:
+            with open(target_dataset_path, 'r', encoding='utf-8') as f:
+                vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
+                self.vocab = vocab
+        else:
+            self.vocab = self.words
+        # State space has 390 dimensions (3 for each letter, gray, yellow, and green states)
+        self.state_size = 390
         # Possible actions are the number of words in the dataset
         self.action_size = len(self.words)
         self.available_actions = list(range(self.action_size))
@@ -30,9 +31,7 @@ class WordleEnv:
         
     @staticmethod
     def get_feedback(guess, target):
-        """
-        Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green)
-        """
+        """Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green)"""
         feedback = [0] * len(guess)
         target_counts = {}
         
@@ -51,45 +50,48 @@ class WordleEnv:
                 
         return feedback
 
+    def get_state(self):
+        state = np.zeros(self.state_size, dtype=np.float32)
+        feedback = self.get_feedback(self.current_guess, self.target_word)
+
+        for pos, (char, fb) in enumerate(zip(self.current_guess, feedback)):
+            if char == "_":
+                continue
+            letter_idx = ord(char) - 65
+            state[78 * pos + fb * 26 + letter_idx] = 1
+
+        return state
+
     def remove_incompatible_words(self, current_guess):
         new_available_actions = []
-        
         actual_feedback = self.get_feedback(current_guess, self.target_word)
-        
-        for i in self.available_actions:
+        prev_available = self.available_actions.copy()
+        for i in prev_available:
             candidate_word = self.words[i]
-            
             simulated_feedback = self.get_feedback(current_guess, candidate_word)
-            
             if simulated_feedback == actual_feedback:
                 new_available_actions.append(i)
-                
-        self.available_actions = new_available_actions 
-        
+
+        self.available_actions = new_available_actions
+
     # This function masks action for the incompatible actions.
     def mask_action(self, action):
         if action in self.available_actions:
             self.available_actions.remove(action)
     
-    # This function gets a random subset of words
-    @staticmethod
-    def get_random_subset(words, subset_size):
-        return random.sample(words, subset_size)
-    
     # This function chooses a random number between 0 and length of dataset, which will be transformed into a word based on the index.
     def get_random_action(self):
-        return random.randint(0, self.action_size - 1)
+        return np.random.randint(0, self.action_size)
 
     # Before starting each episode, the environment is reset to give the initial conditions.
     def reset(self):
-        self.target_word = random.choice(self.words)
+        self.target_word = np.random.choice(self.vocab)
         self.attempts_left = self.max_attempts
         self.attempts = 0
         self.current_guess = '_' * self.word_length
         self.available_actions = list(range(self.action_size))
-
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
-        
+
         return self.current_state
 
     # Each time we make an action (make a guess), we check how many of the letters are correct.
@@ -97,42 +99,29 @@ class WordleEnv:
         self.current_guess = self.words[action]
         self.mask_action(action)  # Mask the taken action
         self.attempts += 1
-        reward = 0
+
         done = False
-        # If the guess is correct, +10 reward.
+        is_won = False
+        
         if self.current_guess == self.target_word:
             reward = 10 * self.attempts_left
             done = True
-        # If some of the letters are correct, give intermediate reward for the number of correct letters [1,4]
+            is_won = True
         else:
             correct_letters = sum([1 for guessed_letter, target_letter in zip(self.current_guess, self.target_word) if guessed_letter == target_letter])
             reward = 1 * correct_letters
             
             self.attempts_left -= 1
-            # If there is no attempts left, unsuccessful, -10 reward.
             if self.attempts_left <= 0:
                 reward = -10
                 done = True
                 
-        self.remove_incompatible_words(self.current_guess)
+       # self.remove_incompatible_words(self.current_guess)
 
-        return self.get_state(), reward, done, {}
-    
-    # In each turn, get the new state based on the correctness of the letters
-    def get_state(self):
-        state = self.current_state
-        # Check each letter of the guess
-        for idx, letter in enumerate(self.current_guess):
-            # If correct location and letter (green), that is allocated for 0,25
-            if letter == self.target_word[idx]:
-                state[(ord(letter) - 65)] = 1
-            # If only correct letter (yellow), allocated for second 26 indices.
-            elif letter in self.target_word:
-                state[(ord(letter) - 65) + 26] = 1
-            # If the letter is not in the word, allocated for the last 26 indices.
-            else:
-                state[(ord(letter) - 65) + 26*2] = 1
-        return state
+        # modified: get the "won" info
+        return self.get_state(), reward, done, {"won": is_won}
+
+
 
     # Printing output purposes.
     def render(self):
