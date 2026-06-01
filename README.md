@@ -3,7 +3,7 @@
 Team Members:
 Harsh Shah, Anwit Damle, Ujjwal Agarwal
 
-Requirements: 
+Setup: 
 ```shell
 pip install -r requirements.txt
 ```

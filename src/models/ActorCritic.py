@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical
 
 # Actor class for the agent, which will be used to take actions based on the current state.
 class Actor(nn.Module):

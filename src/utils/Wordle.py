@@ -79,7 +79,7 @@ class WordleEnv:
         if action in self.available_actions:
             self.available_actions.remove(action)
     
-    # This function chooses a random number between 0 and length of dataset, which will be transformed into a word based on the index.
+    # This function chooses a random number between 0 and length of dataset -1, which will be transformed into a word based on the index.
     def get_random_action(self):
         return np.random.randint(0, self.action_size)
 
@@ -108,15 +108,13 @@ class WordleEnv:
             done = True
             is_won = True
         else:
-            correct_letters = sum([1 for guessed_letter, target_letter in zip(self.current_guess, self.target_word) if guessed_letter == target_letter])
-            reward = 1 * correct_letters
-            
+            reward = sum(self.get_feedback(self.current_guess, self.target_word))
             self.attempts_left -= 1
             if self.attempts_left <= 0:
                 reward = -10
                 done = True
                 
-       # self.remove_incompatible_words(self.current_guess)
+        self.remove_incompatible_words(self.current_guess)
 
         # modified: get the "won" info
         return self.get_state(), reward, done, {"won": is_won}
