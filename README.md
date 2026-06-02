@@ -3,7 +3,7 @@
 Team Members:
 Harsh Shah, Anwit Damle, Ujjwal Agarwal
 
-Setup: 
+##  Setup:
 ```shell
 pip install -r requirements.txt
 ```
@@ -12,7 +12,7 @@ Environment:
 State: A 78-dimensional vector encodes each letter's correctness and position relative to the target word.
 Action: Selecting a word from a dictionary, with masking to prevent repeated guesses.
 Reward System
-Correct Word: +10 reward for guessing the target word correctly. 
+Correct Word: +10 reward for guessing the target word correctly.
 Attempts Exhausted: -10 penalty for exhausting attempts without guessing correctly.
 Midway Progress: +1 reward for each correctly positioned letter in the guessed word.
 
@@ -33,3 +33,30 @@ https://www.nytimes.com/games/wordle/index.html
 https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 
 https://www.geeksforgeeks.org/actor-critic-algorithm-in-reinforcement-learning/
+
+## Minimal training entrypoint (`main.py`)
+
+The training flow from `main.ipynb` is now available as a script in `main.py`, with checkpoint resume for long runs.
+
+List seed jobs:
+
+```shell
+python main.py --list-jobs --seeds 0,1,2,3
+```
+
+Run one seed locally:
+
+```shell
+python main.py --seeds 0,1 --job-index 0 --episodes-per-phase 100000
+```
+
+Run a tiny smoke test:
+
+```shell
+python main.py --seeds 0 --max-episodes 10 --checkpoint-every 5 --log-every 5
+```
+
+Checkpoint files are saved under `outputs/seed_<seed>/checkpoint_latest.pt` and resume automatically on restart.
+
+For clusters, set one of these env vars per pod/task: `JOB_INDEX`, `SLURM_ARRAY_TASK_ID`, or `POD_INDEX`.
+
