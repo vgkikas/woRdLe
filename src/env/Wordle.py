@@ -1,9 +1,10 @@
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path=None):
+    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path='src/data/answers.txt', mode="easy"):
         self.word_length = word_length
         self.max_attempts = max_attempts
+        self.mode = mode
         self.target_word = ''
         self.attempts_left = self.max_attempts
         self.attempts = 0
@@ -21,14 +22,19 @@ class WordleEnv:
                 self.vocab = vocab
         else:
             self.vocab = self.words
-        # State space has 390 dimensions (3 for each letter, gray, yellow, and green states)
-        self.state_size = 390
+
+        # State space has 391 dimensions (3 for each letter (gray, yellow, and green states) for each of the 5 positions, plus the first state indicating how many guesses the agent has left)
+        self.state_size = 391
         # Possible actions are the number of words in the dataset
         self.action_size = len(self.words)
         self.available_actions = list(range(self.action_size))
         # Current state starts as all zeros one hot encoded matrix, then it will be built after each move
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
-        
+        self.current_state[0] = self.attempts_left
+
+    def get_state(self):
+        return self.current_state
+
     @staticmethod
     def get_feedback(guess, target):
         """Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green)"""
@@ -50,17 +56,15 @@ class WordleEnv:
                 
         return feedback
 
-    def get_state(self):
-        state = np.zeros(self.state_size, dtype=np.float32)
+    def update_state_from_feedback(self):
+        self.current_state[0] = self.attempts_left
         feedback = self.get_feedback(self.current_guess, self.target_word)
-
         for pos, (char, fb) in enumerate(zip(self.current_guess, feedback)):
             if char == "_":
                 continue
             letter_idx = ord(char) - 65
-            state[78 * pos + fb * 26 + letter_idx] = 1
-
-        return state
+            self.current_state[1 + 78 * pos + fb * 26 + letter_idx] = 1
+            # We have 3 feedback states (gray, yellow, green) for each of the 5 positions, and each letter can be one of 26 letters in the alphabet. So we have 78 (3*26) features for each position. We also have the first feature to indicate how many attempts are left, so we start from index 1.
 
     def remove_incompatible_words(self, current_guess):
         new_available_actions = []
@@ -91,8 +95,8 @@ class WordleEnv:
         self.current_guess = '_' * self.word_length
         self.available_actions = list(range(self.action_size))
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
+        self.current_state[0] = self.attempts_left
 
-        return self.current_state
 
     # Each time we make an action (make a guess), we check how many of the letters are correct.
     def step(self, action):
@@ -101,23 +105,24 @@ class WordleEnv:
         self.attempts += 1
 
         done = False
-        is_won = False
+        won = False
         
         if self.current_guess == self.target_word:
             reward = 10 * self.attempts_left
             done = True
-            is_won = True
+            won = True
         else:
             reward = sum(self.get_feedback(self.current_guess, self.target_word))
             self.attempts_left -= 1
-            if self.attempts_left <= 0:
-                reward = -10
+            if self.attempts_left == 0:
+                reward = (1-self.max_attempts)*10 # Negative reward for losing, big enough to incentivize exploration instead of trying the same word over and over again.
                 done = True
-                
-        self.remove_incompatible_words(self.current_guess)
+        if self.mode == "hard": # Hard mode: remove incompatible words from the available actions
+            self.remove_incompatible_words(self.current_guess)
+        self.update_state_from_feedback()
 
         # modified: get the "won" info
-        return self.get_state(), reward, done, {"won": is_won}
+        return self.get_state(), reward, done, won, self.attempts
 
 
 
