@@ -295,7 +295,7 @@ if __name__ == "__main__":
     start = time.time()
     train(
         num_episodes = num_episodes,
-        num_workers = 6,
+        num_workers = 56,
         mode = "easy",
         vocab_path = "src/data/answers.txt",
         alpha = 0.01,
