@@ -1,6 +1,6 @@
 import torch
 
-def build_action_mask(action_size, available_actions, device):
+def build_vocab_mask(action_size, available_actions, device):
     """
     Builds a mask tensor for the available actions.
     """

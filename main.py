@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import torch.optim as optim
-import torch.multiprocessing as mp
+# import torch.multiprocessing as mp
 import time
 # import os
 # from collections import namedtuple
@@ -12,59 +12,22 @@ from torch.distributions import Categorical
 from src.env.Wordle import WordleEnv
 from src.models.ActorCritic import Actor, Critic
 from src.models.Adversary import Adversary
-from src.utils.helpers import build_action_mask
+from src.utils.helpers import build_vocab_mask
 
-device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.set_default_device(device)
 
 
 def select_action_actor(actor, state, available_actions, action_size):
-
     # Create a mask tensor for previously chosen actions
-    mask = build_action_mask(action_size, available_actions, device)
-
-    # Add the mask to the actor output and sample from the distribution
     actor_output = actor(state)
-    masked_output = actor_output + mask
-    masked_distribution = Categorical(logits=masked_output)
-    return masked_distribution.sample().view(1, 1)
-
-# def run_episode(actor, critic, optimizer_actor, optimizer_critic, env):
-#     """
-#     Runs one episode for the protagonist/antagonist
-#     """
-#     total_reward = 0
-#     done = False
-#     while not done:
-#         state = torch.tensor(env.current_state, device=device)
-#         actor_output, value = actor(state), critic(state)
-#         mask = torch.full((env.action_size,), -1e9, device=device)
-#         for idx in env.available_actions:
-#             mask[idx] = 0.0
-#
-#         masked_output = actor_output + mask
-#         dist = Categorical(logits=masked_output)
-#         action = dist.sample().view(1, 1)
-#         next_state, reward, done, _ = env.step(action.item())
-#         next_value = critic(torch.tensor(next_state, device=device))
-#         td_error = reward + 0.99 * next_value * (1 - done) - value.detach()
-#         log_prob = dist.log_prob(action).unsqueeze(1)
-#         actor_loss = -log_prob * td_error.detach()
-#         optimizer_actor.zero_grad()
-#         actor_loss.backward()
-#         optimizer_actor.step()
-#
-#         critic_loss = td_error.pow(2)
-#         optimizer_critic.zero_grad()
-#         critic_loss.backward()
-#         optimizer_critic.step()
-#
-#         total_reward += reward
-#
-#     return total_reward
+    mask = build_vocab_mask(action_size, available_actions, device)
+    dist = actor.get_distribution(actor_output)
+    action = dist.sample()
+    # Add the mask to the actor output and sample from the distribution
+    return action.item()
 
 def collect_episode_trajectories(
-        seed,
         target,
         mode,
         actor_p,
@@ -73,12 +36,6 @@ def collect_episode_trajectories(
     """
     Runs one episode for the protagonist/antagonist and returns experience data.
     """
-
-    torch.set_num_threads(1)
-
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-
     env = WordleEnv(mode=mode)
     env.target_word = target
 
@@ -90,10 +47,9 @@ def collect_episode_trajectories(
             available_actions = env.available_actions.copy()
             with torch.no_grad():
                 state_tensor = torch.tensor(state, device=device)
-                actor_output = actor(state_tensor)
-                mask = build_action_mask(env.action_size, available_actions, device)
-                dist = Categorical(logits=actor_output + mask)
-                action = dist.sample().item()
+                # mask = build_vocab_mask(env.action_size, available_actions, device)
+                # dist = Categorical(logits=actor_output + mask)
+                action= select_action_actor(actor, state_tensor, available_actions, env.action_size)
                 next_state, reward, done, won, attempts = env.step(action)
 
             episode.append({
@@ -119,7 +75,6 @@ def collect_episode_trajectories(
 
     reward_a = sum(t['reward'] for t in trajectories_a)
     regret = reward_a - reward_p
-    print(regret)
     return {
         'trajectories_p': trajectories_p,
         'trajectories_a': trajectories_a,
@@ -144,7 +99,6 @@ def compute_and_apply_gradients(
     """
     Computes and applies gradients for both agents and all workers based on the collected trajectory data.
     """
-    torch.set_num_threads(12)
     optimizer_actor_p.zero_grad()
     optimizer_critic_p.zero_grad()
     optimizer_actor_a.zero_grad()
@@ -156,44 +110,48 @@ def compute_and_apply_gradients(
     steps_p = 0
     steps_a = 0
 
-    for trajectory in trajectories:
-        for t in trajectory['trajectories_p']:
-            state = torch.tensor(t['state'], device=device)
-            next_state = torch.tensor(t['next_state'], device=device)
-            action = torch.tensor(t['action'], device=device, dtype=torch.long)
-            reward = torch.tensor(t['reward'], device=device)
-            done = torch.tensor(float(t['done']), device=device)
+    all_td_errors_p = []
+    all_td_errors_a = []
 
-            actor_output = actor_p(state)
-            value = critic_p(state).squeeze()
-            next_value = critic_p(next_state).squeeze()
-            mask = build_action_mask(action_size, t['available_actions'], device)
-            dist = Categorical(logits=actor_output + mask)
-            log_prob = dist.log_prob(action).squeeze()
-            td_error = reward + gamma * next_value * (1 - done) - value
+    for t in trajectories['trajectories_p']:
+        state = torch.tensor(t['state'], device=device)
+        next_state = torch.tensor(t['next_state'], device=device)
+        action_tensor = torch.tensor(t['action'], device=device)
+        reward = torch.tensor(t['reward'], device=device)
+        done = torch.tensor(float(t['done']), device=device)
 
-            batch_actor_loss_p -= log_prob * td_error.detach()
-            batch_critic_loss_p += td_error.pow(2)
-            steps_p += 1
+        value = critic_p(state).squeeze()
+        next_value = critic_p(next_state).squeeze()
+        # mask = build_vocab_mask(action_size, t['available_actions'], device)
+        td_error = reward + gamma * next_value * (1 - done) - value
+        dist = actor_p.get_distribution(actor_p(state))
+        log_prob = dist.log_prob(action_tensor)
+        all_td_errors_p.append(td_error.item())
+        batch_actor_loss_p -= log_prob * td_error.detach()
+        batch_critic_loss_p += td_error.pow(2)
+        steps_p += 1
 
-        for t in trajectory['trajectories_a']:
-            state = torch.tensor(t['state'], device=device)
-            next_state = torch.tensor(t['next_state'], device=device)
-            action = torch.tensor(t['action'], device=device, dtype=torch.long)
-            reward = torch.tensor(t['reward'], device=device)
-            done = torch.tensor(float(t['done']), device=device)
+    for t in trajectories['trajectories_a']:
+        state = torch.tensor(t['state'], device=device)
+        next_state = torch.tensor(t['next_state'], device=device)
+        action = torch.tensor(t['action'], device=device, dtype=torch.long)
+        reward = torch.tensor(t['reward'], device=device)
+        done = torch.tensor(float(t['done']), device=device)
 
-            actor_output = actor_a(state)
-            value = critic_a(state).squeeze()
-            next_value = critic_a(next_state).squeeze()
-            mask = build_action_mask(action_size, t['available_actions'], device)
-            dist = Categorical(logits=actor_output + mask)
-            log_prob = dist.log_prob(action).squeeze()
-            td_error = reward + gamma * next_value * (1 - done) - value
+        value = critic_a(state).squeeze()
+        next_value = critic_a(next_state).squeeze()
+        # mask = build_vocab_mask(action_size, t['available_actions'], device)
+        td_error = reward + gamma * next_value * (1 - done) - value
+        dist = actor_a.get_distribution(actor_a(state))
+        log_prob = dist.log_prob(action)
+        all_td_errors_a.append(td_error.item())
+        batch_actor_loss_a -= log_prob * td_error.detach()
+        batch_critic_loss_a += td_error.pow(2)
+        steps_a += 1
 
-            batch_actor_loss_a -= log_prob * td_error.detach()
-            batch_critic_loss_a += td_error.pow(2)
-            steps_a += 1
+    mean_td_p = np.mean(all_td_errors_p) if all_td_errors_p else 0
+    mean_td_a = np.mean(all_td_errors_a) if all_td_errors_a else 0
+    print(f"[diag] mean_td_error_p={mean_td_p:.4f} mean_td_error_a={mean_td_a:.4f}", flush=True)
 
     batch_actor_loss_p /= max(steps_p, 1)
     batch_critic_loss_p /= max(steps_p, 1)
@@ -210,6 +168,12 @@ def compute_and_apply_gradients(
     batch_critic_loss_a.backward()
     optimizer_critic_a.step()
 
+    return {
+        "actor_loss_p": batch_actor_loss_p.item(),
+        "critic_loss_p": batch_critic_loss_p.item(),
+        "actor_loss_a": batch_actor_loss_a.item(),
+        "critic_loss_a": batch_critic_loss_a.item(),
+    }
 
 def train(
         num_episodes=1000,
@@ -218,18 +182,18 @@ def train(
         vocab_path="src/data/answers.txt",
         alpha=0.01,
         epsilon=0.2,
-        actor_lr = 0.01,
-        critic_lr = 0.01,
+        actor_lr = 0.001,
+        critic_lr = 0.001,
 ):
     np.random.seed(439)
     torch.manual_seed(439)
 
     env = WordleEnv(mode=mode)
 
-    actor_p = Actor(env.state_size, env.action_size).to(device)
+    actor_p = Actor(env.state_size, env.action_size, env.ohe_matrix).to(device)
     critic_p = Critic(env.state_size).to(device)
 
-    actor_a = Actor(env.state_size, env.action_size).to(device)
+    actor_a = Actor(env.state_size, env.action_size, env.ohe_matrix).to(device)
     critic_a = Critic(env.state_size).to(device)
 
     actor_p.share_memory()
@@ -237,71 +201,74 @@ def train(
     actor_a.share_memory()
     critic_a.share_memory()
 
-    optimizer_actor_p = optim.SGD(actor_p.parameters(), lr=actor_lr)
-    optimizer_critic_p = optim.SGD(critic_p.parameters(), lr=critic_lr)
+    optimizer_actor_p = optim.Adam(actor_p.parameters(), lr=actor_lr)
+    optimizer_critic_p = optim.Adam(critic_p.parameters(), lr=critic_lr)
 
-    optimizer_actor_a = optim.SGD(actor_a.parameters(), lr=actor_lr)
-    optimizer_critic_a = optim.SGD(critic_a.parameters(), lr=critic_lr)
+    optimizer_actor_a = optim.Adam(actor_a.parameters(), lr=actor_lr)
+    optimizer_critic_a = optim.Adam(critic_a.parameters(), lr=critic_lr)
 
     adversary = Adversary(vocab_path=vocab_path, alpha=alpha, epsilon=epsilon)
 
     completed_episodes = 0
-    with mp.Pool(processes=num_workers) as pool:
-        while completed_episodes < num_episodes:
-            batch_size = min(num_workers, num_episodes - completed_episodes)
-            jobs = []
-            adversary_actions = []
-            for worker in range(batch_size):
-                adversary_action = adversary.select_action()
-                target = env.vocab[adversary_action]
-                seed = worker + completed_episodes
+    reward_history_p = []
+    reward_history_a = []
+    loss_history_p = []
+    loss_history_a = []
+    window_size = 50
+    
+    while completed_episodes < num_episodes:
+        adversary_action = adversary.select_action()
+        target = env.vocab[adversary_action]
 
-                adversary_actions.append(adversary_action)
-                jobs.append(
-                    (
-                        seed,
-                        target,
-                        mode,
-                        actor_p,
-                        actor_a,
-                    )
-                )
 
-                all_trajectories = pool.starmap(collect_episode_trajectories, jobs)
+        all_trajectories = collect_episode_trajectories(target, mode, actor_p, actor_a)
+        losses = compute_and_apply_gradients(
+            all_trajectories,
+            env.action_size,
+            actor_p,
+            critic_p,
+            actor_a,
+            critic_a,
+            optimizer_actor_p,
+            optimizer_critic_p,
+            optimizer_actor_a,
+            optimizer_critic_a,
+        )
+        adversary.observe(adversary_action, all_trajectories["regret"])
 
-            compute_and_apply_gradients(
-                all_trajectories,
-                env.action_size,
-                actor_p,
-                critic_p,
-                actor_a,
-                critic_a,
-                optimizer_actor_p,
-                optimizer_critic_p,
-                optimizer_actor_a,
-                optimizer_critic_a
+        reward_history_p.append(all_trajectories["reward_p"])
+        reward_history_a.append(all_trajectories["reward_a"])
+        loss_history_p.append(losses["actor_loss_p"] + losses["critic_loss_p"])
+        loss_history_a.append(losses["actor_loss_a"] + losses["critic_loss_a"])
+        completed_episodes += 1
+
+        if completed_episodes % window_size == 0:
+            avg_p = np.mean(reward_history_p[-window_size:])
+            avg_a = np.mean(reward_history_a[-window_size:])
+            avg_loss_p = np.mean(loss_history_p[-window_size:])
+            avg_loss_a = np.mean(loss_history_a[-window_size:])
+            print(
+                f"ep={completed_episodes:5d} | "
+                f"protag_r={avg_p:6.2f} protag_l={avg_loss_p:8.4f} | "
+                f"antag_r={avg_a:6.2f} antag_l={avg_loss_a:8.4f}",
+                flush=True,
             )
-
-            for adversary_action, result in zip(adversary_actions, all_trajectories):
-                adversary.observe(adversary_action, result['regret'])
-
-            completed_episodes += batch_size
-
     return actor_p, critic_p, actor_a, critic_a, adversary
+    
 
 if __name__ == "__main__":
-    mp.set_start_method("spawn", force=True)
-    num_episodes = 1000
+    print(device)
+    num_episodes = 10000
     start = time.time()
     train(
         num_episodes = num_episodes,
-        num_workers = 56,
-        mode = "easy",
+        num_workers = 12,
+        mode = "hard",
         vocab_path = "src/data/answers.txt",
         alpha = 0.01,
         epsilon = 0.2,
-        actor_lr = 0.01,
-        critic_lr = 0.01,
+        actor_lr = 0.001,
+        critic_lr = 0.001,
     )
     end = time.time()
     print(f"Training time: {end - start} seconds")

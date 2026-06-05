@@ -6,10 +6,10 @@ class Adversary:
     def __init__(self, vocab_path, alpha=0.01, epsilon=0.1):
         with open(vocab_path, 'r') as f:
             self.vocab = f.readlines()
-        self.Q = defaultdict(lambda: 2 * np.ones(self.vocab_size)) # Q values are initialized in such a way that
         self.alpha = alpha
         self.epsilon = epsilon
         self.vocab_size = len(self.vocab)
+        self.Q = defaultdict(lambda: 2 * np.ones(self.vocab_size))  #
         self.visit_count = defaultdict(int)
 
     def select_action(self):
@@ -20,4 +20,4 @@ class Adversary:
 
     def observe(self, action, reward):
         self.visit_count[action] += 1
-        self.Q['start'][action] = self.alpha * (reward + 110/self.visit_count[action] - self.Q['start'][action])
+        self.Q['start'][action] += self.alpha * (reward + 110/self.visit_count[action] - self.Q['start'][action])
