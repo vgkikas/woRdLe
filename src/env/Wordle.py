@@ -23,12 +23,19 @@ class WordleEnv:
         else:
             self.vocab = self.words
 
+
         # State space has 391 dimensions (3 for each letter (gray, yellow, and green states) for each of the 5 positions, plus the first state indicating how many guesses the agent has left)
         self.state_size = 391
         # Possible actions are the number of words in the dataset
-        self.action_size = len(self.words)
+        self.action_size = 26 * self.word_length # One-hot encoding of the words
         self.available_actions = list(range(self.action_size))
-        # Current state starts as all zeros one hot encoded matrix, then it will be built after each move
+        ohe_matrix = np.zeros((self.action_size, len(self.words))) # Creates an one-hot encoding matrix for the entire dataset, to be used for extracting actual words from the actor's output.
+        for i, word in enumerate(self.words):
+            for pos, char in enumerate(word):
+                letter_idx = ord(char) - 65
+                ohe_matrix[pos * 26 + letter_idx, i] = 1
+        self.ohe_matrix = ohe_matrix
+        # Current state starts as all zeros one hot encoded matrix, then it will be built after each move. First index indicates the amount of attempts
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
         self.current_state[0] = self.attempts_left
 
@@ -37,7 +44,7 @@ class WordleEnv:
 
     @staticmethod
     def get_feedback(guess, target):
-        """Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green)"""
+        """Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green) for guess based on target."""
         feedback = [0] * len(guess)
         target_counts = {}
         
@@ -50,7 +57,7 @@ class WordleEnv:
                 target_counts[g_char] -= 1
                 
         for i, (g_char, t_char) in enumerate(zip(guess, target)):
-            if feedback[i] == 0 and target_counts.get(g_char, 0) > 0:
+            if feedback[i] == 0 and target_counts.get(g_char, 0) > 0: # If feedback is not green but the letter is still in the target word
                 feedback[i] = 1
                 target_counts[g_char] -= 1
                 
@@ -100,7 +107,7 @@ class WordleEnv:
 
     # Each time we make an action (make a guess), we check how many of the letters are correct.
     def step(self, action):
-        self.current_guess = self.words[action]
+        self.current_guess = self.words[(action@self.ohe_matrix).argmax()]
         self.mask_action(action)  # Mask the taken action
         self.attempts += 1
 
@@ -112,7 +119,7 @@ class WordleEnv:
             done = True
             won = True
         else:
-            reward = sum(self.get_feedback(self.current_guess, self.target_word))
+            reward = sum(self.get_feedback(self.current_guess, self.target_word)) -1
             self.attempts_left -= 1
             if self.attempts_left == 0:
                 reward = (1-self.max_attempts)*10 # Negative reward for losing, big enough to incentivize exploration instead of trying the same word over and over again.
