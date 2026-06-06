@@ -100,7 +100,7 @@ def train_naive(num_episodes=1000000, batch_size=4):
         win_history.append(int(won))
         attempt_history.append(episode_length)
 
-        if i % 1000 == 0:
+        if i % 100000 == 0:
             with open(f'../results/naive/reward_history_{i}.json', 'w') as f:
                 json.dump(reward_history, f)
             with open (f'../results/naive/win_history_{i}.json', 'w') as f:
