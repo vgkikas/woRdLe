@@ -1,7 +1,7 @@
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path='src/data/answers.txt', mode="easy"):
+    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='../src/data/wordle_actual.txt', target_dataset_path='../src/data/answers.txt', mode="easy"):
         self.word_length = word_length
         self.max_attempts = max_attempts
         self.mode = mode
@@ -35,7 +35,7 @@ class WordleEnv:
                 letter_idx = ord(char) - 65
                 ohe_matrix[pos * 26 + letter_idx, i] = 1
         self.ohe_matrix = ohe_matrix
-        # Current state starts as all zeros one hot encoded matrix, then it will be built after each move. First index indicates the amount of attempts
+        # Current state starts as all zeros one hot encoded matrix, then it will be built after each move. First index indicates the number of attempts
         self.current_state = np.zeros(self.state_size, dtype=np.float32)
         self.current_state[0] = self.attempts_left
 
@@ -72,23 +72,6 @@ class WordleEnv:
             letter_idx = ord(char) - 65
             self.current_state[1 + 78 * pos + fb * 26 + letter_idx] = 1
             # We have 3 feedback states (gray, yellow, green) for each of the 5 positions, and each letter can be one of 26 letters in the alphabet. So we have 78 (3*26) features for each position. We also have the first feature to indicate how many attempts are left, so we start from index 1.
-
-    def remove_incompatible_words(self, current_guess):
-        new_available_actions = []
-        actual_feedback = self.get_feedback(current_guess, self.target_word)
-        prev_available = self.available_actions.copy()
-        for i in prev_available:
-            candidate_word = self.words[i]
-            simulated_feedback = self.get_feedback(current_guess, candidate_word)
-            if simulated_feedback == actual_feedback:
-                new_available_actions.append(i)
-
-        self.available_actions = new_available_actions
-
-    # This function masks action for the incompatible actions.
-    # def mask_action(self, action):
-    #     if action in self.available_actions:
-    #         self.available_actions.remove(action)
     
     # This function chooses a random number between 0 and length of dataset -1, which will be transformed into a word based on the index.
     def get_random_action(self):
@@ -119,19 +102,14 @@ class WordleEnv:
             done = True
             won = True
         else:
-            reward = sum(self.get_feedback(self.current_guess, self.target_word)) -1
+            reward = sum(self.get_feedback(self.current_guess, self.target_word))
             self.attempts_left -= 1
             if self.attempts_left == 0:
                 reward = (1-self.max_attempts)*10 # Negative reward for losing, big enough to incentivize exploration instead of trying the same word over and over again.
                 done = True
-        if self.mode == "hard": # Hard mode: remove incompatible words from the available actions
-            self.remove_incompatible_words(self.current_guess)
         self.update_state_from_feedback()
 
-        # modified: get the "won" info
         return self.get_state(), reward, done, won, self.attempts
-
-
 
     # Printing output purposes.
     def render(self):

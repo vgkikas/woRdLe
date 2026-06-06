@@ -1,15 +1,28 @@
 # woRdLe : A Deep Reinforcement Learning Approach
+This is a mini-project for the course CS-439: Optimization for Machine Learning at EPFL.
 
-Team Members:
-Harsh Shah, Anwit Damle, Ujjwal Agarwal
+
 
 ##  Setup:
 ```shell
 pip install -r requirements.txt
 ```
-
+## Project Structure:
+```
+├── src                         <- Source code
+│   ├── data                            <- Data directory
+│   ├── envs                            <- Environment directory
+│   ├── models                          <- Model directory
+│   ├── trainings                       <- Training directory
+│   ├─  utils                           <- Utility directory
+│
+├── main.ipynb               <- Notebook with final results
+│
+├── requirements.txt        <- File for installing python dependencies
+└── README.md
+```
 Environment:
-State: A 78-dimensional vector encodes each letter's correctness and position relative to the target word.
+State: A 391-dimensional vector encodes each letter's correctness and position relative to the target word.
 Action: Selecting a word from a dictionary, with masking to prevent repeated guesses.
 Reward System
 Correct Word: +10 reward for guessing the target word correctly.
@@ -34,29 +47,12 @@ https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 
 https://www.geeksforgeeks.org/actor-critic-algorithm-in-reinforcement-learning/
 
-## Minimal training entrypoint (`main.py`)
 
-The training flow from `main.ipynb` is now available as a script in `main.py`, with checkpoint resume for long runs.
 
-List seed jobs:
+## A note on hardware optimization:
+A significant amount of time was spent exploring the best hardware configuration for the project. Our testing across different hardware configurations (modern consumer-grade CPUs, older server-class CPUs, and GPUs) revealed that the performance bottleneck of the project was single-thread CPU performance. After trying to optimize the code for multi-threading, we found that the overhead of thread management outweighed the benefits. Similarly, due to the small number of low-dimensional layers in our neural networks, GPU utilization hindered performance. While it would be possible to further increase the dimensionality of the network's layers or the batch size, we believe that in a setting with many possible actions such as Wordle, the most important factor is experience. We therefore decided to keep the neural network minimal to facilitate faster learning per episode.
 
-```shell
-python main.py --list-jobs --seeds 0,1,2,3
-```
+For the reasons stated above, we recommend using a CPU with high single-core performance for training. For peace of mind, the CPU provided by GitHub Codespaces is a good choice.
 
-Run one seed locally:
-
-```shell
-python main.py --seeds 0,1 --job-index 0 --episodes-per-phase 100000
-```
-
-Run a tiny smoke test:
-
-```shell
-python main.py --seeds 0 --max-episodes 10 --checkpoint-every 5 --log-every 5
-```
-
-Checkpoint files are saved under `outputs/seed_<seed>/checkpoint_latest.pt` and resume automatically on restart.
-
-For clusters, set one of these env vars per pod/task: `JOB_INDEX`, `SLURM_ARRAY_TASK_ID`, or `POD_INDEX`.
-
+Team Members:
+Farhan Ali, Jean Fregeville, Vasileios Gkikas
