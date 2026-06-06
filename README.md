@@ -36,7 +36,7 @@ DDQN employs two separate neural networks, known as the online network and the t
 
 2. Advantage Actor Critic:
 In A2C, an actor network learns a policy to select actions, while a critic network estimates the value function to evaluate these actions. The advantage of A2C lies in its ability to update both the policy and the value function simultaneously, using the advantage function to guide learning. This approach leads to more stable training and faster convergence compared to traditional policy gradient methods.
-The advantage function, A(s,a), measures the advantage of taking action a in state s​ over the expected value of the state under the current policy.
+The advantage function, A(s,a), measures the advantage of taking action `a` in state s​ over the expected value of the state under the current policy.
 A(s,a) = Q(s,a) - V(s)
 
 Used resources:

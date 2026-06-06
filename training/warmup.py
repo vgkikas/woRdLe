@@ -8,10 +8,13 @@ from src.models.ActorCritic import Actor, Critic
 device = torch.device("cpu") # Check README
 torch.set_default_device(device)
 
-def train_naive(num_episodes=1000000, batch_size=4):
+def train_with_warmup(num_episodes=1000000, batch_size=4):
     np.random.seed(439)
     torch.manual_seed(439)
     env = WordleEnv()
+    full_words = env.words.copy()
+    full_vocab = env.vocab.copy()
+    subset = np.random.choice(full_vocab, 500)
 
     actor = Actor(env.state_size, env.ohe_matrix).to(device)
     critic = Critic(env.state_size).to(device)
@@ -19,14 +22,23 @@ def train_naive(num_episodes=1000000, batch_size=4):
     optim_actor = optim.Adam(actor.parameters(), lr=0.001)
     optim_critic = optim.Adam(critic.parameters(), lr=0.001)
 
-    env.action_size = len(env.words)
-    ohe_matrix = np.zeros((26 * env.word_length, env.action_size))
-    for i, word in enumerate(env.words):
-        for pos, char in enumerate(word):
-            letter_idx = ord(char) - 65
-            ohe_matrix[pos * 26 + letter_idx, i] = 1
-    env.ohe_matrix = ohe_matrix
-    actor.ohe_matrix = torch.tensor(ohe_matrix, device=device, dtype=torch.float32)
+    def set_difficulty(words, vocab):
+        """
+        Sets the difficulty of the environment by changing the word list, vocabulary, and OHE matrix for the actor.
+        """
+        env.words = words
+        env.vocab = vocab
+        env.action_size = len(env.words)
+        ohe_matrix = np.zeros((26 * env.word_length, env.action_size))
+        for i, word in enumerate(env.words):
+            for pos, char in enumerate(word):
+                letter_idx = ord(char) - 65
+                ohe_matrix[pos * 26 + letter_idx, i] = 1
+        env.ohe_matrix = ohe_matrix
+        actor.ohe_matrix = torch.tensor(ohe_matrix, device=device, dtype=torch.float32)
+
+    # First level with 20 words
+    set_difficulty(subset[:20], subset[:20])
 
     reward_history = []
     win_history = []
@@ -38,6 +50,12 @@ def train_naive(num_episodes=1000000, batch_size=4):
         done = False
         episode_reward = 0
         won=0
+        if i == 2001: # First increase of difficulty
+            set_difficulty(subset[:100], subset[:100])
+        elif i == 20001: #  Second increase of difficulty
+            set_difficulty(subset, subset)
+        elif i == 40001: # Full datasets
+            set_difficulty(full_words, full_vocab)
         episode_length = 0
 
         while not done:
@@ -100,14 +118,14 @@ def train_naive(num_episodes=1000000, batch_size=4):
         win_history.append(int(won))
         attempt_history.append(episode_length)
 
-        if i % 1000 == 0:
-            with open(f'../results/naive/reward_history_{i}.json', 'w') as f:
+        if i % 100000 == 0:
+            with open(f'../results/warmup/reward_history_{i}.json', 'w') as f:
                 json.dump(reward_history, f)
-            with open (f'../results/naive/win_history_{i}.json', 'w') as f:
+            with open (f'../results/warmup/win_history_{i}.json', 'w') as f:
                 json.dump(win_history, f)
-            with open (f'../results/naive/attempt_history_{i}.json', 'w') as f:
+            with open (f'../results/warmup/attempt_history_{i}.json', 'w') as f:
                 json.dump(attempt_history, f)
             print(f"Saved data at {i}-th episode.")
 
 if __name__ == "__main__":
-    train_naive()
+    train_with_warmup()

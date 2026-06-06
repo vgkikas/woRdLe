@@ -1,10 +1,9 @@
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='../src/data/wordle_actual.txt', target_dataset_path='../src/data/answers.txt', mode="easy"):
+    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='../src/data/wordle_actual.txt', target_dataset_path='../src/data/answers.txt'):
         self.word_length = word_length
         self.max_attempts = max_attempts
-        self.mode = mode
         self.target_word = ''
         self.attempts_left = self.max_attempts
         self.attempts = 0
@@ -15,7 +14,7 @@ class WordleEnv:
             words = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
             self.words = words
 
-        # Load the subset for the teacher
+        # Load the curriculum/answers subset
         if target_dataset_path is not None:
             with open(target_dataset_path, 'r', encoding='utf-8') as f:
                 vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
@@ -24,12 +23,12 @@ class WordleEnv:
             self.vocab = self.words
 
 
-        # State space has 391 dimensions (3 for each letter (gray, yellow, and green states) for each of the 5 positions, plus the first state indicating how many guesses the agent has left)
+        # State space has 391 dimensions (3 for each letter (gray, yellow, and green states) for each of the 5 positions, plus the first state indicating how many guesses the agent has left
         self.state_size = 391
         # Possible actions are the number of words in the dataset
         self.action_size = 26 * self.word_length # One-hot encoding of the words
         self.available_actions = list(range(self.action_size))
-        ohe_matrix = np.zeros((self.action_size, len(self.words)))  # Creates an one-hot encoding matrix for the entire dataset, to be used for extracting actual words from the actor's output.
+        ohe_matrix = np.zeros((self.action_size, len(self.words)))  # Creates a one-hot encoding matrix for the entire dataset, to be used for extracting actual words from the actor's output
         for i, word in enumerate(self.words):
             for pos, char in enumerate(word):
                 letter_idx = ord(char) - 65
@@ -44,7 +43,9 @@ class WordleEnv:
 
     @staticmethod
     def get_feedback(guess, target):
-        """Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green) for guess based on target."""
+        """
+        Provides Wordle feedback (0 = Gray, 1 = Yellow, 2 = Green) for guess based on target.
+        """
         feedback = [0] * len(guess)
         target_counts = {}
         
@@ -71,13 +72,7 @@ class WordleEnv:
                 continue
             letter_idx = ord(char) - 65
             self.current_state[1 + 78 * pos + fb * 26 + letter_idx] = 1
-            # We have 3 feedback states (gray, yellow, green) for each of the 5 positions, and each letter can be one of 26 letters in the alphabet. So we have 78 (3*26) features for each position. We also have the first feature to indicate how many attempts are left, so we start from index 1.
-    
-    # This function chooses a random number between 0 and length of dataset -1, which will be transformed into a word based on the index.
-    def get_random_action(self):
-        return np.random.randint(0, self.action_size)
 
-    # Before starting each episode, the environment is reset to give the initial conditions.
     def reset(self):
         self.target_word = np.random.choice(self.vocab)
         self.attempts_left = self.max_attempts
@@ -88,28 +83,25 @@ class WordleEnv:
         self.current_state[0] = self.attempts_left
 
 
-    # Each time we make an action (make a guess), we check how many of the letters are correct.
+    # Each time we make an action (make a guess), we check how many of the letters are correct
     def step(self, action):
         self.current_guess = self.words[action]
-        # self.mask_action(action)  # Mask the taken action
         self.attempts += 1
-
         done = False
         won = False
-        
         if self.current_guess == self.target_word:
-            reward = 10 * self.attempts_left
+            reward = 10 * self.attempts_left # Incentivizes early guesses
             done = True
             won = True
         else:
-            reward = sum(self.get_feedback(self.current_guess, self.target_word))
+            reward = sum(self.get_feedback(self.current_guess, self.target_word)) # Rewards correct letters, however not enough to encourage repeated guesses compared to winning
             self.attempts_left -= 1
             if self.attempts_left == 0:
-                reward = (1-self.max_attempts)*10 # Negative reward for losing, big enough to incentivize exploration instead of trying the same word over and over again.
+                reward = (1-self.max_attempts)*10 # Negative reward for losing, big enough to incentivize exploration instead of trying the same word over and over again
                 done = True
         self.update_state_from_feedback()
 
-        return self.get_state(), reward, done, won, self.attempts
+        return self.get_state(), reward, done, won
 
     # Printing output purposes.
     def render(self):
