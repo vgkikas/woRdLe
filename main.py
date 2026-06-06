@@ -215,11 +215,21 @@ def train(
     loss_history_p = []
     loss_history_a = []
     window_size = 50
-    
+
     while completed_episodes < num_episodes:
         adversary_action = adversary.select_action()
         target = env.vocab[adversary_action]
 
+                adversary_actions.append(adversary_action)
+                jobs.append(
+                    (
+                        seed,
+                        target,
+                        mode,
+                        actor_p,
+                        actor_a,
+                    )
+                )
 
         all_trajectories = collect_episode_trajectories(target, mode, actor_p, actor_a)
         losses = compute_and_apply_gradients(
@@ -254,7 +264,7 @@ def train(
                 flush=True,
             )
     return actor_p, critic_p, actor_a, critic_a, adversary
-    
+
 
 if __name__ == "__main__":
     print(device)
