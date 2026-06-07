@@ -1,7 +1,7 @@
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='../src/data/wordle_actual.txt', target_dataset_path='../src/data/answers.txt'):
+    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path='src/data/answers.txt'):
         self.word_length = word_length
         self.max_attempts = max_attempts
         self.target_word = ''
