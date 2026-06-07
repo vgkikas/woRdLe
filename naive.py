@@ -8,7 +8,7 @@ from src.models.ActorCritic import Actor, Critic
 device = torch.device("cpu") # Check README
 torch.set_default_device(device)
 
-def train_naive(num_episodes=1000000, batch_size=4):
+def train_naive(num_episodes=500000, batch_size=4):
     np.random.seed(439)
     torch.manual_seed(439)
     env = WordleEnv()
@@ -90,7 +90,7 @@ def train_naive(num_episodes=1000000, batch_size=4):
                 log_prob = dist.log_prob(torch.tensor(t['action'], device=device))
                 actor_loss += -(log_prob * advantage[idx]) - 0.1 * dist.entropy() # Regularizing with entropy to encourage exploration
 
-            actor_loss = actor_loss / len(trajectories)
+            actor_loss /= len(trajectories)
             optim_actor.zero_grad()
             actor_loss.backward()
             optim_actor.step()
@@ -101,11 +101,11 @@ def train_naive(num_episodes=1000000, batch_size=4):
         attempt_history.append(episode_length)
 
         if i % 100000 == 0:
-            with open(f'../results/naive/reward_history_{i}.json', 'w') as f:
+            with open(f'results/naive/reward_history_{i}.json', 'w') as f:
                 json.dump(reward_history, f)
-            with open (f'../results/naive/win_history_{i}.json', 'w') as f:
+            with open (f'results/naive/win_history_{i}.json', 'w') as f:
                 json.dump(win_history, f)
-            with open (f'../results/naive/attempt_history_{i}.json', 'w') as f:
+            with open (f'results/naive/attempt_history_{i}.json', 'w') as f:
                 json.dump(attempt_history, f)
             print(f"Saved data at {i}-th episode.")
 
