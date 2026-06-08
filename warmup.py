@@ -11,10 +11,12 @@ torch.set_default_device(device)
 def train_with_warmup(num_episodes=500000, batch_size=4):
     np.random.seed(439)
     torch.manual_seed(439)
-    env = WordleEnv()
+    env = WordleEnv(mode="warmup")
     full_words = env.words.copy()
     full_vocab = env.vocab.copy()
-    subset = np.random.choice(full_vocab, 500)
+    subset_easy = np.random.choice(full_vocab[:771], 20)
+    subset_medium = np.concatenate((subset_easy, np.random.choice(full_vocab[771:1543], 80)))
+    subset_hard = np.concatenate((subset_medium, np.random.choice(full_vocab[1543:], 400)))
 
     actor = Actor(env.state_size, env.ohe_matrix).to(device)
     critic = Critic(env.state_size).to(device)
@@ -38,7 +40,7 @@ def train_with_warmup(num_episodes=500000, batch_size=4):
         actor.ohe_matrix = torch.tensor(ohe_matrix, device=device, dtype=torch.float32)
 
     # First level with 20 words
-    set_difficulty(subset[:20], subset[:20])
+    set_difficulty(subset_easy, subset_easy)
 
     reward_history = []
     win_history = []
@@ -51,9 +53,9 @@ def train_with_warmup(num_episodes=500000, batch_size=4):
         episode_reward = 0
         won=0
         if i == 2001: # First increase of difficulty
-            set_difficulty(subset[:100], subset[:100])
+            set_difficulty(subset_medium, subset_medium)
         elif i == 20001: #  Second increase of difficulty
-            set_difficulty(subset, subset)
+            set_difficulty(subset_hard, subset_hard)
         elif i == 40001: # Full datasets
             set_difficulty(full_words, full_vocab)
         episode_length = 0
