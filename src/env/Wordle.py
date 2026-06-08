@@ -1,7 +1,7 @@
 import numpy as np
 
 class WordleEnv:
-    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path='src/data/answers.txt', mode=None):
+    def __init__(self, word_length=5, max_attempts=6, global_dataset_path='src/data/wordle_actual.txt', target_dataset_path='src/data/answers.txt'):
         self.word_length = word_length
         self.max_attempts = max_attempts
         self.target_word = ''
@@ -16,23 +16,12 @@ class WordleEnv:
 
         # Load the curriculum/answers subset
         if target_dataset_path is not None:
-            # Introduce graded difficulty by loading different datasets based on the mode, if specified. Otherwise, load the target dataset as the vocabulary.
-            if mode is not None:
-                with open("src/data/dataset_1_easy.txt", 'r', encoding='utf-8') as f:
-                    vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
-                    self.vocab = vocab
-                with open("src/data/dataset_2_medium.txt", 'r', encoding='utf-8') as f:
-                    vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
-                    self.vocab.extend(vocab)
-                with open("src/data/dataset_3_hard.txt", 'r', encoding='utf-8') as f:
-                    vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
-                    self.vocab.extend(vocab)
-            else:
-                with open(target_dataset_path, 'r', encoding='utf-8') as f:
-                    vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
+            with open(target_dataset_path, 'r', encoding='utf-8') as f:
+                vocab = [word.strip().upper() for word in f.readlines() if len(word.strip()) == word_length]
                 self.vocab = vocab
         else:
             self.vocab = self.words
+
 
         # State space has 391 dimensions (3 for each letter (gray, yellow, and green states) for each of the 5 positions, plus the first state indicating how many guesses the agent has left
         self.state_size = 391
