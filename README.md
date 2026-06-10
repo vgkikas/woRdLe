@@ -1,58 +1,55 @@
-# woRdLe : A Deep Reinforcement Learning Approach
+# woRdLe: A Deep Reinforcement Learning Approach
 This is a mini-project for the course CS-439: Optimization for Machine Learning at EPFL.
 
-
-
-##  Setup:
+##  Setup
 ```shell
 pip install -r requirements.txt
 ```
-## Project Structure:
+## Project Structure
 ```
-├── src                         <- Source code
-│   ├── data                            <- Data directory
-│   ├── envs                            <- Environment directory
-│   ├── models                          <- Model directory
-│   ├── trainings                       <- Training directory
-│   ├─  utils                           <- Utility directory
+├── results                     <- Directory for saving results
 │
-├── main.ipynb               <- Notebook with final results
+│── src                         <- Source code
+│   ├── data                    <- Data directory. The curriculum is also defined here.
+│   ├── envs                    <- Environment directory
+│   ├── models                  <- Model directory
 │
-├── requirements.txt        <- File for installing python dependencies
+│── curriculum.py               <- File for training using a curriculum of increasing difficulty
+│
+│── naive.py                    <- File for training without curriculum
+│
+│── warmup.py                   <- File for training using a randomized curriculum
+│
+├── results.ipynb               <- Notebook with final results and plots
+│
+├── requirements.txt            <- File for installing python dependencies
+│
 └── README.md
 ```
-Environment:
-State: A 391-dimensional vector encodes each letter's correctness and position relative to the target word.
-Action: Selecting a word from a dictionary, with masking to prevent repeated guesses.
-Reward System
-Correct Word: +10 reward for guessing the target word correctly.
-Attempts Exhausted: -10 penalty for exhausting attempts without guessing correctly.
-Midway Progress: +1 reward for each correctly positioned letter in the guessed word.
 
-Agents Applied :
-
-1. Double Deep Q-Network:
-DDQN employs two separate neural networks, known as the online network and the target network, to decouple the action selection from the value estimation. By periodically updating the target network with the parameters of the online network, DDQN stabilizes the learning process and improves performance, particularly in environments with large action spaces or complex dynamics.
-
-2. Advantage Actor Critic:
-In A2C, an actor network learns a policy to select actions, while a critic network estimates the value function to evaluate these actions. The advantage of A2C lies in its ability to update both the policy and the value function simultaneously, using the advantage function to guide learning. This approach leads to more stable training and faster convergence compared to traditional policy gradient methods.
-The advantage function, A(s,a), measures the advantage of taking action `a` in state s​ over the expected value of the state under the current policy.
-A(s,a) = Q(s,a) - V(s)
-
-Used resources:
-
-https://www.nytimes.com/games/wordle/index.html
-
-https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
-
-https://www.geeksforgeeks.org/actor-critic-algorithm-in-reinforcement-learning/
+## Project Description
+This project implements a Reinforcemnt Learning agent to play the popular word-guessing game Wordle and explores pathways of training optimization via transfer learning.
 
 
+### Environment
 
+- State: A 391-dimensional vector encodes the number of attempts left and each letter's correctness and position relative to the target word.
+- Latent action space: 130 dimensions.
+- Action: The actor outputs are multiplied with an OHE matrix of all words in the vocabulary. The results are passed as logits to a categorical distribution and an action is sampled.
+- Rewards: +2 for green, +1 for yellow, +10$\times$(1 + # of attempts left) for winning to encourage early winning.
+- Penalty for losing: -50 to discourage exploitation of the reward system.
+
+
+### Agents:
+Advantage Actor Critic: An actor network that learns to maximize the expected return, and a critic network that estimates the value function to reduce variance in the policy gradient updates.
+
+## Model Architecture:
+- Actor: 391-dimensional input, one hidden layer of 256 units with ReLU activation, and a 130-dimensional output layer.
+- Critic: The same architecture as the actor, but with a single output unit for the value function.
 ## A note on hardware optimization:
-A significant amount of time was spent exploring the best hardware configuration for the project. Our testing across different hardware configurations (modern consumer-grade CPUs, older server-class CPUs, and GPUs) revealed that the performance bottleneck of the project was single-thread CPU performance. After trying to optimize the code for multi-threading, we found that the overhead of thread management outweighed the benefits. Similarly, due to the small number of low-dimensional layers in our neural networks, GPU utilization hindered performance. While it would be possible to further increase the dimensionality of the network's layers or the batch size, we believe that in a setting with many possible actions such as Wordle, the most important factor is experience. We therefore decided to keep the neural network minimal to facilitate faster learning per episode.
+A significant amount of time was spent exploring the best hardware configuration for the project. Our testing across different hardware configurations (modern consumer-grade CPUs, older server-class CPUs, and GPUs) revealed that the performance bottleneck of the project was single-thread CPU performance and memory bandwidth. After trying to optimize the code for multi-threading, we found that the overhead of thread management outweighed the benefits. Similarly, due to the small number of low-dimensional layers in our neural networks, GPU utilization hindered performance. While it would be possible to further increase the dimensionality of the network's layers or the batch size, we believe that in a setting with many possible actions such as Wordle, the most important factor is experience. We therefore decided to keep the neural network minimal to facilitate faster learning per episode.
 
-For the reasons stated above, we recommend using a CPU with high single-core performance for training. For peace of mind, the CPU provided by GitHub Codespaces is a good choice.
+For the reasons stated above, we recommend using a CPU with high single-core performance for training.
 
-Team Members:
+## Team Members:
 Farhan Ali, Jean Fregeville, Vasileios Gkikas
