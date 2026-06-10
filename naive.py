@@ -9,6 +9,12 @@ device = torch.device("cpu") # Check README
 torch.set_default_device(device)
 
 def train_naive(num_episodes=500000, batch_size=4):
+    """
+    Trains the agent without using a curriculum and saves its performance.
+    :param num_episodes: The number of episodes to train for.
+    :param batch_size: The number of episodes to run before updating the network.
+    :return: None
+    """
     np.random.seed(439)
     torch.manual_seed(439)
     env = WordleEnv()
@@ -81,7 +87,7 @@ def train_naive(num_episodes=500000, batch_size=4):
 
             # Actor update
             advantage = td_error.detach()
-            advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-9) # Batch normalization
+            advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-9) # Advantage normalization
             actor_loss = 0
 
             for idx in range(len(trajectories)):
@@ -99,15 +105,15 @@ def train_naive(num_episodes=500000, batch_size=4):
         reward_history.append(episode_reward)
         win_history.append(int(won))
         attempt_history.append(episode_length)
-
-        if i % 100000 == 0:
-            with open(f'results/naive/reward_history_{i}.json', 'w') as f:
-                json.dump(reward_history, f)
-            with open (f'results/naive/win_history_{i}.json', 'w') as f:
-                json.dump(win_history, f)
-            with open (f'results/naive/attempt_history_{i}.json', 'w') as f:
-                json.dump(attempt_history, f)
-            print(f"Saved data at {i}-th episode.")
+        if i == 50:
+            print("Done")
+    with open(f'results/naive/reward_history.json', 'w') as f:
+        json.dump(reward_history, f)
+    with open(f'results/naive/win_history.json', 'w') as f:
+        json.dump(win_history, f)
+    with open(f'results/naive/attempt_history.json', 'w') as f:
+        json.dump(attempt_history, f)
+    print(f"Saved data after {num_episodes} episodes.")
 
 if __name__ == "__main__":
     train_naive()
