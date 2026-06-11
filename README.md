@@ -36,7 +36,7 @@ This project implements a Reinforcemnt Learning agent to play the popular word-g
 - State: A 391-dimensional vector encodes the number of attempts left and each letter's correctness and position relative to the target word.
 - Latent action space: 130 dimensions.
 - Action: The actor outputs are multiplied with an OHE matrix of all words in the vocabulary. The results are passed as logits to a categorical distribution and an action is sampled.
-- Rewards: +2 for green, +1 for yellow, +10$\times$(1 + # of attempts left) for winning to encourage early winning.
+- Rewards: +2 for green, +1 for yellow, +10 $\times$ (1 + # of attempts left) for winning to encourage early winning.
 - Penalty for losing: -50 to discourage exploitation of the reward system.
 
 
