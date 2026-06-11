@@ -10,7 +10,7 @@ pip install -r requirements.txt
 ├── results                     <- Directory for saving results
 │
 │── src                         <- Source code
-│   ├── data                    <- Data directory. The curriculum is also defined here.
+│   ├── data                    <- Data directory
 │   ├── envs                    <- Environment directory
 │   ├── models                  <- Model directory
 │
@@ -20,7 +20,7 @@ pip install -r requirements.txt
 │
 │── warmup.py                   <- File for training using a randomized curriculum
 │
-├── results.ipynb               <- Notebook with final results and plots
+├── results.ipynb               <- Notebook with curriculum definition, final results and plots
 │
 ├── requirements.txt            <- File for installing python dependencies
 │
@@ -49,7 +49,7 @@ Advantage Actor Critic: An actor network that learns to maximize the expected re
 ## A note on hardware optimization:
 A significant amount of time was spent exploring the best hardware configuration for the project. Our testing across different hardware configurations (modern consumer-grade CPUs, older server-class CPUs, and GPUs) revealed that the performance bottleneck of the project was single-thread CPU performance and memory bandwidth. After trying to optimize the code for multi-threading, we found that the overhead of thread management outweighed the benefits. Similarly, due to the small number of low-dimensional layers in our neural networks, GPU utilization hindered performance. While it would be possible to further increase the dimensionality of the network's layers or the batch size, we believe that in a setting with many possible actions such as Wordle, the most important factor is experience. We therefore decided to keep the neural network minimal to facilitate faster learning per episode.
 
-For the reasons stated above, we recommend using a CPU with high single-core performance for training.
+For the reasons stated above, we recommend using a modern CPU with high single-core performance for training.
 
 ## Team Members:
 Farhan Ali, Jean Fregeville, Vasileios Gkikas
