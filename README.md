@@ -24,7 +24,7 @@ pip install -r requirements.txt
 │
 ├── requirements.txt            <- File for installing python dependencies
 │
-├── literatute.bib              <- Literature references
+├── literature.bib              <- Literature references
 │
 └── README.md
 ```
