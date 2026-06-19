@@ -11,7 +11,7 @@ pip install -r requirements.txt
 │
 │── src                         <- Source code
 │   ├── data                    <- Data directory
-│   ├── envs                    <- Environment directory
+│   ├── env                     <- Environment directory
 │   ├── models                  <- Model directory
 │
 │── curriculum.py               <- File for training using a curriculum of increasing difficulty
